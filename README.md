@@ -7,8 +7,9 @@ A Python library for extracting individual test cases from Robot Framework outpu
 - 📦 Split large Robot Framework output.xml into individual test case chunks
 - 📊 Generate separate HTML log reports for each test case
 - 🔍 Extract test documentation and structured steps
-- 📝 Preserve test metadata (status, source, tags)
-- 🎯 Easy integration with existing Robot Framework workflows
+- 📝 Preserve test metadata (index, test_name, test_id, status, documentation, steps, source, xml_file, success)
+- 🎯 Data collected from XML files can be made available to reporting systems such as Polarion, qTest, Jira, etc. 
+
 
 ## Installation
 
@@ -37,19 +38,15 @@ from LogXML2Chunks import LogXML2Chunks
 chunker = LogXML2Chunks()
 
 # Split output.xml into chunks
-results = chunker.split_to_chunks(
+chunker.split_to_chunks(
     output_xml_path='output.xml',
     output_dir='chunked_results'
 )
 
-# Process results
-for result in results:
-    print(f"Test: {result['test_name']}")
-    print(f"Status: {result['status']}")
-    print(f"XML: {result['xml_file']}")
-    print(f"Log: {result['log_file']}")
-    print(f"Steps: {result['steps']}")
-    print()
+# Read data from chunks XML
+from pathlib import Path
+chunks_folder = Path(__file__).parent / 'chunks'
+data = chunker.get_data_from_chunks(chunks_folder)
 ```
 
 ### As a Command Line Tool
@@ -96,11 +93,12 @@ The library automatically extracts steps from test documentation that follow thi
 *** Test Cases ***
 My Test Case
     [Documentation]    Test description
+    ...
     ...                *Steps*:
     ...                1. First step / Expected result
     ...                2. Second step / Expected result
-    ...                - Bullet point step
-    
+    ...
+    ...                Summary Documentation    
     Log    Test execution
 ```
 
@@ -108,8 +106,7 @@ Extracted steps format:
 ```python
 {
     'First step': 'Expected result',
-    'Second step': 'Expected result',
-    'Bullet point step': 'pass'
+    'Second step': 'Expected result',    
 }
 ```
 
