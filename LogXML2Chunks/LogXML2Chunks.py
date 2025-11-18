@@ -13,6 +13,7 @@ import os
 import sys
 import copy
 import re
+import hashlib
 from pathlib import Path
 
 class LogXML2Chunks:
@@ -169,6 +170,10 @@ class LogXML2Chunks:
             if potential_log.exists():
                 log_filepath = str(potential_log)
             
+            # Calculate checksum based on test_name and documentation
+            checksum_data = f"{test_name}{test_doc}".encode('utf-8')
+            checksum = hashlib.md5(checksum_data).hexdigest()
+            
             # Build result dictionary
             result = {
                 'index': idx,
@@ -179,9 +184,10 @@ class LogXML2Chunks:
                 'steps': test_steps,
                 'source': test_source,
                 'xml_file': str(xml_filepath),
+                'checksum': checksum,
                 'success': True
-            }
-            
+            }            
+
             # Add log file if it exists
             if log_filepath:
                 result['log_file'] = log_filepath

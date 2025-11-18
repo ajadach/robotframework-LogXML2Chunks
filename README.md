@@ -80,10 +80,24 @@ The `split_to_chunks()` method returns a list of dictionaries with:
     'source': '/path/to/test.robot',    # Source file path
     'xml_file': Path('...'),            # Generated XML file path
     'log_file': Path('...'),            # Generated log file path
+    'checksum': 'a1b2c3d4...',          # MD5 checksum of test_name + documentation
     'success': True,                    # Whether generation succeeded
     'error': None                       # Error message if failed
 }
 ```
+
+### Checksum Field
+
+The `checksum` field is automatically calculated for each test case using MD5 hash of the concatenated `test_name` and `documentation`. This provides a unique identifier for tracking test case changes:
+
+- **Format**: 32-character hexadecimal string
+- **Algorithm**: MD5
+- **Input**: `test_name + documentation`
+- **Use cases**: 
+  - Detect documentation changes
+  - Track test case modifications
+  - Integration with external test management systems
+  - Version control of test cases
 
 ## Step Extraction
 

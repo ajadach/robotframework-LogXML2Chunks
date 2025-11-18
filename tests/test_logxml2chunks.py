@@ -47,7 +47,7 @@ class TestLogXML2Chunks:
         
         # Verify all required fields are present
         required_fields = ['index', 'test_name', 'test_id', 'status', 'documentation', 
-                          'steps', 'source', 'xml_file', 'success']
+                          'steps', 'source', 'xml_file', 'checksum', 'success']
         for field in required_fields:
             assert field in result, f"Field '{field}' should be present in result"
         
@@ -56,6 +56,12 @@ class TestLogXML2Chunks:
         assert result['test_id'] == 's1-t1', f"Expected 's1-t1', got '{result['test_id']}'"
         assert result['status'] == 'PASS', f"Expected 'PASS', got '{result['status']}'"
         assert result['index'] == 1, f"Expected index 1, got {result['index']}"
+        
+        # Verify checksum is present and valid
+        assert 'checksum' in result, "checksum field should be present"
+        assert isinstance(result['checksum'], str), "checksum should be a string"
+        assert len(result['checksum']) == 32, f"checksum should be 32 characters (MD5), got {len(result['checksum'])}"
+        assert result['checksum'].isalnum(), "checksum should be alphanumeric"
         
         # Verify source path
         assert 'example.robot' in result['source'], f"Source should contain 'example.robot', got '{result['source']}'"
@@ -124,6 +130,7 @@ class TestLogXML2Chunks:
             assert 'steps' in result
             assert 'source' in result
             assert 'xml_file' in result
+            assert 'checksum' in result
             assert 'success' in result
             assert result['success'] is True
         
