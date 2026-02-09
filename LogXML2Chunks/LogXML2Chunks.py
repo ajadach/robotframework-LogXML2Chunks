@@ -18,6 +18,20 @@ from pathlib import Path
 
 class LogXML2Chunks:
 
+    def __init__(self, debug=True):
+        """
+        Initialize LogXML2Chunks instance.
+        
+        Args:
+            debug: Enable debug output (default: True)
+        """
+        self.debug = debug
+
+    def _debug_print(self, *args, **kwargs):
+        """Print only if debug mode is enabled."""
+        if self.debug:
+            print(*args, **kwargs)
+
     def _extract_steps_from_documentation(self, doc_text):
         """
         Extract steps from test documentation.
@@ -228,33 +242,33 @@ class LogXML2Chunks:
         
         # Check if folder exists
         if not folder.exists():
-            print(f"Error: Folder does not exist: {folder_path}")
+            self._debug_print(f"Error: Folder does not exist: {folder_path}")
             return results
         
         if not folder.is_dir():
-            print(f"Error: Path is not a directory: {folder_path}")
+            self._debug_print(f"Error: Path is not a directory: {folder_path}")
             return results
         
         # Find all XML files in the folder
         xml_files = sorted(folder.glob('*.xml'))
         
         if not xml_files:
-            print(f"Warning: No XML files found in {folder_path}")
+            self._debug_print(f"Warning: No XML files found in {folder_path}")
             return results
         
-        print(f"Found {len(xml_files)} XML files in {folder_path}")
+        self._debug_print(f"Found {len(xml_files)} XML files in {folder_path}")
         
         # Process each XML file
         for xml_file in xml_files:
-            print(f"  Processing: {xml_file.name}")
+            self._debug_print(f"  Processing: {xml_file.name}")
             chunk_data = self.get_data_from_chunk(str(xml_file))
             results.append(chunk_data)
             
             # Print status
             if chunk_data.get('success', False):
-                print(f"    ✓ {chunk_data.get('test_name', 'Unknown')} - {chunk_data.get('status', 'Unknown')}")
+                self._debug_print(f"    ✓ {chunk_data.get('test_name', 'Unknown')} - {chunk_data.get('status', 'Unknown')}")
             else:
-                print(f"    ✗ Error: {chunk_data.get('error', 'Unknown error')}")
+                self._debug_print(f"    ✗ Error: {chunk_data.get('error', 'Unknown error')}")
         
         return results
 
@@ -281,7 +295,7 @@ class LogXML2Chunks:
             for test in suite.findall('test'):
                 test_cases.append((suite, test))
 
-        print(f"Found {len(test_cases)} test cases")
+        self._debug_print(f"Found {len(test_cases)} test cases")
 
         # Extract each test case
         for idx, (suite, test) in enumerate(test_cases, 1):
@@ -293,7 +307,7 @@ class LogXML2Chunks:
             xml_filename = f"{idx}_{safe_name}_{test_id}.xml"
             xml_filepath = output_path / xml_filename
 
-            print(f"\n[{idx}/{len(test_cases)}] Processing: {test_name}")
+            self._debug_print(f"\n[{idx}/{len(test_cases)}] Processing: {test_name}")
 
             # Create a new XML document with only this test case
             new_root = ET.Element('robot', root.attrib)
@@ -366,7 +380,7 @@ class LogXML2Chunks:
             ET.indent(new_tree, space='  ')
             new_tree.write(xml_filepath, encoding='UTF-8', xml_declaration=True)
 
-            print(f"  ✓ Created XML: {xml_filepath}")
+            self._debug_print(f"  ✓ Created XML: {xml_filepath}")
 
             # Generate HTML report using rebot
             # html_filename = f"{safe_name}_{test_id}.html"
@@ -394,13 +408,13 @@ class LogXML2Chunks:
                 # With --NoStatusRC, rebot returns 0 on success regardless of test results
                 # Only non-zero codes indicate actual errors (invalid data, missing files, etc.)
                 if result.returncode == 0:
-                    print(f"  ✓ Generated log: {log_filepath}")
+                    self._debug_print(f"  ✓ Generated log: {log_filepath}")
                 else:
-                    print(f"  ✗ Failed to generate report (exit code: {result.returncode})")
+                    self._debug_print(f"  ✗ Failed to generate report (exit code: {result.returncode})")
                     if result.stderr:
-                        print(f"     Error: {result.stderr}")
+                        self._debug_print(f"     Error: {result.stderr}")
 
             except FileNotFoundError:
-                print(f"  ✗ Error: rebot command not found. Please install robotframework.")
+                self._debug_print(f"  ✗ Error: rebot command not found. Please install robotframework.")
             except Exception as e:
-                print(f"  ✗ Error generating report: {str(e)}, index number = {idx}")
+                self._debug_print(f"  ✗ Error generating report: {str(e)}, index number = {idx}")

@@ -10,7 +10,7 @@ long_description = (this_directory / "README.md").read_text(encoding='utf-8')
 
 setup(
     name='robotframework-logxml2chunks',
-    version='1.1.0',
+    version='1.1.1',
     author='Artur Jadach',
     author_email='artur.k.ziolkowski@example.com',
     description='Extract individual test cases from Robot Framework output.xml into separate chunks',
