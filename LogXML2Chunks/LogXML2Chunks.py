@@ -18,14 +18,22 @@ from pathlib import Path
 
 class LogXML2Chunks:
 
-    def __init__(self, debug=True):
+    def __init__(self, debug=True, filename_prefix_pattern=None):
         """
         Initialize LogXML2Chunks instance.
         
         Args:
             debug: Enable debug output (default: True)
+            filename_prefix_pattern: Regex pattern to extract a custom prefix for chunk filenames.
+                                    Must contain one capture group that captures the prefix value.
+                                    The captured value will be added to the beginning of XML and HTML filenames.
+                                    Example: r"open_session\('(\w+)'" would extract 'DB' from 
+                                            "open_session('DB', '10.0.0.1')" and create files like:
+                                            "1_DB_TestName_s1-t1.xml"
+                                    Default: None (no prefix extraction)
         """
         self.debug = debug
+        self.filename_prefix_pattern = re.compile(filename_prefix_pattern) if filename_prefix_pattern else None
 
     def _debug_print(self, *args, **kwargs):
         """Print only if debug mode is enabled."""
@@ -120,6 +128,83 @@ class LogXML2Chunks:
 
         return steps
 
+    def _extract_requirements_from_documentation(self, doc_text):
+        """
+        Extract requirements from test documentation.
+
+        Looks for sections marked as *Requirements*, *Requirements:* or Requirements:
+        and extracts the list items that follow (numbered or bulleted).
+
+        Args:
+            doc_text: The documentation text to parse
+
+        Returns:
+            List of requirement strings extracted from the documentation.
+            Returns empty list if no requirements found.
+        """
+        if not doc_text:
+            return []
+
+        requirements = []
+
+        # Pattern to find the Requirements section (case-insensitive, with or without asterisks/colon)
+        requirements_pattern = r'(?:\*)?Requirements(?:\*)?:?'
+
+        # Find the Requirements section
+        match = re.search(requirements_pattern, doc_text, re.IGNORECASE | re.MULTILINE)
+        if not match:
+            return []
+
+        # Get text after the Requirements marker
+        text_after_requirements = doc_text[match.end():]
+
+        # Split into lines and process
+        lines = text_after_requirements.split('\n')
+
+        for line in lines:
+            line = line.strip()
+
+            # Stop if we hit another section (starts with * and ends with *, or starts with * and contains :)
+            if line.startswith('*'):
+                if line.endswith('*') or ':' in line:
+                    break
+
+            # Skip empty lines
+            if not line or line == '...':
+                continue
+
+            # Remove leading "..." from Robot Framework documentation
+            if line.startswith('...'):
+                line = line[3:].strip()
+
+            req_text = None
+
+            # Check for numbered list items (1. , 2. , etc.)
+            numbered_match = re.match(r'^\d+\.\s+(.+)$', line)
+            if numbered_match:
+                req_text = numbered_match.group(1).strip()
+
+            # Check for bulleted list items (- , * , etc.)
+            if not req_text:
+                bullet_match = re.match(r'^[-*]\s+(.+)$', line)
+                if bullet_match:
+                    req_text = bullet_match.group(1).strip()
+
+            # If no list marker, treat as plain text requirement
+            if not req_text and line:
+                req_text = line
+
+            if req_text:
+                requirements.append(req_text)
+                continue
+
+            # If we already have requirements and this line doesn't match any pattern,
+            # it might be the end of the requirements section
+            if requirements and not line.startswith(('1', '2', '3', '4', '5', '6', '7', '8', '9', '-', '*')):
+                break
+
+        return requirements
+
     def get_data_from_chunk(self, xml_filepath):
         """
         Extract and structure data from a test chunk XML file.
@@ -131,6 +216,7 @@ class LogXML2Chunks:
             Dictionary with test case data, or None if parsing fails
         """
         try:
+
             # Parse the XML file
             tree = ET.parse(xml_filepath)
             root = tree.getroot()
@@ -167,6 +253,9 @@ class LogXML2Chunks:
             # Extract steps from documentation
             test_steps = self._extract_steps_from_documentation(test_doc)
             
+            # Extract requirements from documentation
+            test_requirements = self._extract_requirements_from_documentation(test_doc)
+            
             # Get test status
             status_element = test.find('status')
             test_status = status_element.get('status', 'UNKNOWN') if status_element is not None else 'UNKNOWN'
@@ -187,7 +276,7 @@ class LogXML2Chunks:
             # Calculate checksum based on test_name and documentation
             checksum_data = f"{test_name}{test_doc}".encode('utf-8')
             checksum = hashlib.md5(checksum_data).hexdigest()
-            
+
             # Build result dictionary
             result = {
                 'index': idx,
@@ -196,6 +285,7 @@ class LogXML2Chunks:
                 'status': test_status,
                 'documentation': test_doc,
                 'steps': test_steps,
+                'requirements': test_requirements,
                 'source': test_source,
                 'xml_file': str(xml_filepath),
                 'checksum': checksum,
@@ -272,6 +362,64 @@ class LogXML2Chunks:
         
         return results
 
+    def _extract_filename_prefix(self, test, suite, root=None):
+        """
+        Extract a custom prefix for filenames from test case or suite setup messages.
+        
+        Uses the regex pattern provided in constructor to search XML messages
+        and extract a prefix value for chunk filenames.
+        
+        Searches in this order:
+        1. Current suite's SETUP keywords
+        2. All parent suites' SETUP keywords (if root is provided)
+        3. Test case keywords
+
+        Args:
+            test: Test case XML element
+            suite: Suite XML element containing the test
+            root: Root XML element (optional, for searching parent suites)
+
+        Returns:
+            Extracted prefix string (uppercase) or None if not found or pattern not set
+        """
+        if not self.filename_prefix_pattern:
+            return None
+        
+        # Search in suite setup keywords first (current suite)
+        for msg in suite.findall('.//kw[@type="SETUP"]//msg'):
+            if msg.text:
+                match = self.filename_prefix_pattern.search(msg.text)
+                if match:
+                    return match.group(1).upper()
+
+        # Search in parent suites' SETUP keywords (if root is provided)
+        if root is not None:
+            suite_id = suite.get('id', '')
+            # Build list of parent suite IDs: s1-s1-s1-s1 -> [s1-s1-s1, s1-s1, s1]
+            parent_ids = []
+            parts = suite_id.split('-')
+            for i in range(len(parts) - 1, 0, -1):
+                parent_ids.append('-'.join(parts[:i]))
+
+            # Search in each parent suite
+            for parent_id in parent_ids:
+                parent_suite = root.find(f".//suite[@id='{parent_id}']")
+                if parent_suite is not None:
+                    for msg in parent_suite.findall('.//kw[@type="SETUP"]//msg'):
+                        if msg.text:
+                            match = self.filename_prefix_pattern.search(msg.text)
+                            if match:
+                                return match.group(1).upper()
+
+        # Search in test case keywords
+        for msg in test.findall('.//msg'):
+            if msg.text:
+                match = self.filename_prefix_pattern.search(msg.text)
+                if match:
+                    return match.group(1).upper()
+        
+        return None
+
     def split_to_chunks(self, output_xml_path, output_dir="chunked_results"):
         """
         Extract each test case from output.xml into separate XML files
@@ -301,13 +449,22 @@ class LogXML2Chunks:
         for idx, (suite, test) in enumerate(test_cases, 1):
             test_name = test.get('name')
             test_id = test.get('id')
+            
+            # Extract filename prefix (if pattern is configured)
+            prefix = self._extract_filename_prefix(test, suite, root)
 
-            # Create a safe filename
+            # Create a safe filename (with prefix if available)
             safe_name = test_name.replace(' ', '_').replace('/', '_').replace('\\', '_')
-            xml_filename = f"{idx}_{safe_name}_{test_id}.xml"
+            if prefix:
+                xml_filename = f"{idx}_{prefix}_{safe_name}_{test_id}.xml"
+            else:
+                xml_filename = f"{idx}_{safe_name}_{test_id}.xml"
             xml_filepath = output_path / xml_filename
 
-            self._debug_print(f"\n[{idx}/{len(test_cases)}] Processing: {test_name}")
+            if prefix:
+                self._debug_print(f"\n[{idx}/{len(test_cases)}] Processing: {test_name} (Prefix: {prefix})")
+            else:
+                self._debug_print(f"\n[{idx}/{len(test_cases)}] Processing: {test_name}")
 
             # Create a new XML document with only this test case
             new_root = ET.Element('robot', root.attrib)
@@ -383,9 +540,10 @@ class LogXML2Chunks:
             self._debug_print(f"  ✓ Created XML: {xml_filepath}")
 
             # Generate HTML report using rebot
-            # html_filename = f"{safe_name}_{test_id}.html"
-            log_filename = f"{idx}_{safe_name}_{test_id}_log.html"
-            # html_filepath = output_path / html_filename
+            if prefix:
+                log_filename = f"{idx}_{prefix}_{safe_name}_{test_id}_log.html"
+            else:
+                log_filename = f"{idx}_{safe_name}_{test_id}_log.html"
             log_filepath = output_path / log_filename
 
             try:
