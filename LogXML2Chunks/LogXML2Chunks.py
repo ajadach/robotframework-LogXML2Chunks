@@ -273,9 +273,22 @@ class LogXML2Chunks:
             if potential_log.exists():
                 log_filepath = str(potential_log)
             
-            # Calculate checksum based on test_name and documentation
-            checksum_data = f"{test_name}{test_doc}".encode('utf-8')
+            # Normalize test_source: lowercase and strip absolute path prefix
+            # to make checksum portable across different repository locations.
+            # Split on 'tests' or 'scripts' folder (whichever comes first) and keep from there.
+            test_source_normalized = test_source.lower()
+            for marker in ('/tests/', '/scripts/'):
+                idx = test_source_normalized.find(marker)
+                if idx != -1:
+                    test_source_normalized = test_source_normalized[idx + 1:]
+                    break
+
+            # Calculate checksum based on test_name, documentation and normalized suite source path
+            checksum_data = f"{test_name}{test_doc}{test_source_normalized}".encode('utf-8')
             checksum = hashlib.md5(checksum_data).hexdigest()
+
+            # Extract interface prefix from XML content (if pattern configured)
+            interface_prefix = self._extract_filename_prefix(test, suite, root) if self.filename_prefix_pattern else None
 
             # Build result dictionary
             result = {
@@ -289,8 +302,9 @@ class LogXML2Chunks:
                 'source': test_source,
                 'xml_file': str(xml_filepath),
                 'checksum': checksum,
-                'success': True
-            }            
+                'success': True,
+                'interface': interface_prefix,
+            }
 
             # Add log file if it exists
             if log_filepath:
