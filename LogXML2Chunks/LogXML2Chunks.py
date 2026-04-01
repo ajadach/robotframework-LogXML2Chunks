@@ -278,6 +278,9 @@ class LogXML2Chunks:
             checksum_data = f"{test_name}{test_doc}".encode('utf-8')
             checksum = hashlib.md5(checksum_data).hexdigest()
 
+            elements_path = xml_filepath.split('__')
+            full_prefix = '_'.join(elements_path[0].split('_')[1:]) if elements_path else None
+
             # Build result dictionary
             result = {
                 'index': idx,
@@ -290,8 +293,9 @@ class LogXML2Chunks:
                 'source': test_source,
                 'xml_file': str(xml_filepath),
                 'checksum': checksum,
-                'success': True
-            }            
+                'success': True,
+                'full_prefix': full_prefix
+            }
 
             # Add log file if it exists
             if log_filepath:
@@ -455,7 +459,7 @@ class LogXML2Chunks:
             safe_name = test_name.replace(' ', '_').replace('/', '_').replace('\\', '_')
             if self.filename_prefix_pattern and self.filename_prefix_static:
                 prefix = self._extract_filename_prefix(test, suite, root)
-                xml_filename = f"{idx}_{self.filename_prefix_static}_{prefix}__{safe_name}_{test_id}.xml"            
+                xml_filename = f"{idx}_{prefix}_{self.filename_prefix_static}__{safe_name}_{test_id}.xml"            
             elif self.filename_prefix_static:
                 xml_filename = f"{idx}_{self.filename_prefix_static}__{safe_name}_{test_id}.xml"
             elif self.filename_prefix_pattern:
