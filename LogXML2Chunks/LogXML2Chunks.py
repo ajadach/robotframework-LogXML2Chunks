@@ -18,7 +18,7 @@ from pathlib import Path
 
 class LogXML2Chunks:
 
-    def __init__(self, debug=True, filename_prefix_pattern=None):
+    def __init__(self, debug=True, filename_prefix_pattern=None, filename_prefix_static=None):
         """
         Initialize LogXML2Chunks instance.
         
@@ -34,6 +34,7 @@ class LogXML2Chunks:
         """
         self.debug = debug
         self.filename_prefix_pattern = re.compile(filename_prefix_pattern) if filename_prefix_pattern else None
+        self.filename_prefix_static = filename_prefix_static
 
     def _debug_print(self, *args, **kwargs):
         """Print only if debug mode is enabled."""
@@ -450,8 +451,14 @@ class LogXML2Chunks:
             test_name = test.get('name')
             test_id = test.get('id')
             
-            # Extract filename prefix (if pattern is configured)
-            prefix = self._extract_filename_prefix(test, suite, root)
+            # Setup prefix for filenames based on configuration
+            if self.filename_prefix_static:
+                prefix = self.filename_prefix_static
+            elif self.filename_prefix_pattern:
+                # Extract filename prefix (if pattern is configured)
+                prefix = self._extract_filename_prefix(test, suite, root)
+            else:
+                prefix = None
 
             # Create a safe filename (with prefix if available)
             safe_name = test_name.replace(' ', '_').replace('/', '_').replace('\\', '_')
