@@ -455,7 +455,7 @@ class LogXML2Chunks:
             safe_name = test_name.replace(' ', '_').replace('/', '_').replace('\\', '_')
             if self.filename_prefix_pattern and self.filename_prefix_static:
                 prefix = self._extract_filename_prefix(test, suite, root)
-                xml_filename = f"{idx}_{self.filename_prefix_static}_{prefix}__{safe_name}_{test_id}.xml"            
+                xml_filename = f"{idx}_{prefix}_{self.filename_prefix_static}__{safe_name}_{test_id}.xml"            
             elif self.filename_prefix_static:
                 xml_filename = f"{idx}_{self.filename_prefix_static}__{safe_name}_{test_id}.xml"
             elif self.filename_prefix_pattern:
