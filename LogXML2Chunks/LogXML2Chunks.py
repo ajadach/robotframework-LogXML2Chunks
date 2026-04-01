@@ -450,22 +450,19 @@ class LogXML2Chunks:
         for idx, (suite, test) in enumerate(test_cases, 1):
             test_name = test.get('name')
             test_id = test.get('id')
-            
-            # Setup prefix for filenames based on configuration
-            if self.filename_prefix_static:
-                prefix = self.filename_prefix_static
-            elif self.filename_prefix_pattern:
-                # Extract filename prefix (if pattern is configured)
-                prefix = self._extract_filename_prefix(test, suite, root)
-            else:
-                prefix = None
 
             # Create a safe filename (with prefix if available)
             safe_name = test_name.replace(' ', '_').replace('/', '_').replace('\\', '_')
-            if prefix:
-                xml_filename = f"{idx}_{prefix}_{safe_name}_{test_id}.xml"
+            if self.filename_prefix_pattern and self.filename_prefix_static:
+                prefix = self._extract_filename_prefix(test, suite, root)
+                xml_filename = f"{idx}_{self.filename_prefix_static}_{prefix}__{safe_name}_{test_id}.xml"            
+            elif self.filename_prefix_static:
+                xml_filename = f"{idx}_{self.filename_prefix_static}__{safe_name}_{test_id}.xml"
+            elif self.filename_prefix_pattern:
+                prefix = self._extract_filename_prefix(test, suite, root)
+                xml_filename = f"{idx}_{prefix}__{safe_name}_{test_id}.xml"
             else:
-                xml_filename = f"{idx}_{safe_name}_{test_id}.xml"
+                xml_filename = f"{idx}__{safe_name}_{test_id}.xml"
             xml_filepath = output_path / xml_filename
 
             if prefix:
