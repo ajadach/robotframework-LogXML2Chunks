@@ -457,22 +457,24 @@ class LogXML2Chunks:
 
             # Create a safe filename (with prefix if available)
             safe_name = test_name.replace(' ', '_').replace('/', '_').replace('\\', '_')
+            
             if self.filename_prefix_pattern and self.filename_prefix_static:
-                prefix = self._extract_filename_prefix(test, suite, root)
-                xml_filename = f"{idx}_{prefix}_{self.filename_prefix_static}__{safe_name}_{test_id}.xml"            
+                prefix = f"{self._extract_filename_prefix(test, suite, root)}_{self.filename_prefix_static}"
             elif self.filename_prefix_static:
-                xml_filename = f"{idx}_{self.filename_prefix_static}__{safe_name}_{test_id}.xml"
+                prefix = self.filename_prefix_static                
             elif self.filename_prefix_pattern:
                 prefix = self._extract_filename_prefix(test, suite, root)
-                xml_filename = f"{idx}_{prefix}__{safe_name}_{test_id}.xml"
             else:
-                xml_filename = f"{idx}__{safe_name}_{test_id}.xml"
-            xml_filepath = output_path / xml_filename
+                prefix = None
 
             if prefix:
                 self._debug_print(f"\n[{idx}/{len(test_cases)}] Processing: {test_name} (Prefix: {prefix})")
+                xml_filename = f"{idx}_{prefix}__{safe_name}_{test_id}.xml"
             else:
                 self._debug_print(f"\n[{idx}/{len(test_cases)}] Processing: {test_name}")
+                xml_filename = f"{idx}__{safe_name}_{test_id}.xml"
+                
+            xml_filepath = output_path / xml_filename
 
             # Create a new XML document with only this test case
             new_root = ET.Element('robot', root.attrib)
