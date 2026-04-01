@@ -266,7 +266,11 @@ class LogXML2Chunks:
             idx_match = re.match(r'^(\d+)_', filename)
             idx = int(idx_match.group(1)) if idx_match else 0
             
-            # Check if corresponding log file exists
+            # Check if corresponding log file exists.
+            # Both XML and HTML use the same double-underscore convention:
+            #   1_GUI_TBD__Update_Role_..._t1.xml
+            #   1_GUI_TBD__Update_Role_..._t1_log.html
+            # so the log filename is simply stem + '_log.html'.
             log_filepath = None
             xml_path = Path(xml_filepath)
             log_filename = xml_path.stem + '_log.html'
@@ -549,11 +553,14 @@ class LogXML2Chunks:
 
             self._debug_print(f"  ✓ Created XML: {xml_filepath}")
 
-            # Generate HTML report using rebot
+            # Generate HTML report using rebot.
+            # Use the same double-underscore separator as the XML filename so that
+            # get_data_from_chunk() can reliably locate the log by replacing '__' → '_'
+            # in the XML stem and appending '_log.html'.
             if prefix:
-                log_filename = f"{idx}_{prefix}_{safe_name}_{test_id}_log.html"
+                log_filename = f"{idx}_{prefix}__{safe_name}_{test_id}_log.html"
             else:
-                log_filename = f"{idx}_{safe_name}_{test_id}_log.html"
+                log_filename = f"{idx}__{safe_name}_{test_id}_log.html"
             log_filepath = output_path / log_filename
 
             try:
