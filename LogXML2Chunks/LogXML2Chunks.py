@@ -266,7 +266,11 @@ class LogXML2Chunks:
             idx_match = re.match(r'^(\d+)_', filename)
             idx = int(idx_match.group(1)) if idx_match else 0
             
-            # Check if corresponding log file exists
+            # Check if corresponding log file exists.
+            # Both XML and HTML use the same double-underscore convention:
+            #   1_GUI_TBD__Update_Role_..._t1.xml
+            #   1_GUI_TBD__Update_Role_..._t1_log.html
+            # so the log filename is simply stem + '_log.html'.
             log_filepath = None
             xml_path = Path(xml_filepath)
             log_filename = xml_path.stem + '_log.html'
@@ -277,6 +281,9 @@ class LogXML2Chunks:
             # Calculate checksum based on test_name and documentation
             checksum_data = f"{test_name}{test_doc}".encode('utf-8')
             checksum = hashlib.md5(checksum_data).hexdigest()
+
+            elements_path = filename.split('__')
+            full_prefix = '_'.join(elements_path[0].split('_')[1:]) if len(elements_path) > 1 else None
 
             # Build result dictionary
             result = {
@@ -290,8 +297,9 @@ class LogXML2Chunks:
                 'source': test_source,
                 'xml_file': str(xml_filepath),
                 'checksum': checksum,
-                'success': True
-            }            
+                'success': True,
+                'full_prefix': full_prefix
+            }
 
             # Add log file if it exists
             if log_filepath:
@@ -453,22 +461,24 @@ class LogXML2Chunks:
 
             # Create a safe filename (with prefix if available)
             safe_name = test_name.replace(' ', '_').replace('/', '_').replace('\\', '_')
+            
             if self.filename_prefix_pattern and self.filename_prefix_static:
-                prefix = self._extract_filename_prefix(test, suite, root)
-                xml_filename = f"{idx}_{self.filename_prefix_static}_{prefix}__{safe_name}_{test_id}.xml"            
+                prefix = f"{self._extract_filename_prefix(test, suite, root)}_{self.filename_prefix_static}"
             elif self.filename_prefix_static:
-                xml_filename = f"{idx}_{self.filename_prefix_static}__{safe_name}_{test_id}.xml"
+                prefix = self.filename_prefix_static                
             elif self.filename_prefix_pattern:
                 prefix = self._extract_filename_prefix(test, suite, root)
-                xml_filename = f"{idx}_{prefix}__{safe_name}_{test_id}.xml"
             else:
-                xml_filename = f"{idx}__{safe_name}_{test_id}.xml"
-            xml_filepath = output_path / xml_filename
+                prefix = None
 
             if prefix:
                 self._debug_print(f"\n[{idx}/{len(test_cases)}] Processing: {test_name} (Prefix: {prefix})")
+                xml_filename = f"{idx}_{prefix}__{safe_name}_{test_id}.xml"
             else:
                 self._debug_print(f"\n[{idx}/{len(test_cases)}] Processing: {test_name}")
+                xml_filename = f"{idx}__{safe_name}_{test_id}.xml"
+                
+            xml_filepath = output_path / xml_filename
 
             # Create a new XML document with only this test case
             new_root = ET.Element('robot', root.attrib)
@@ -543,11 +553,14 @@ class LogXML2Chunks:
 
             self._debug_print(f"  ✓ Created XML: {xml_filepath}")
 
-            # Generate HTML report using rebot
+            # Generate HTML report using rebot.
+            # Use the same double-underscore separator as the XML filename so that
+            # get_data_from_chunk() can reliably locate the log by replacing '__' → '_'
+            # in the XML stem and appending '_log.html'.
             if prefix:
-                log_filename = f"{idx}_{prefix}_{safe_name}_{test_id}_log.html"
+                log_filename = f"{idx}_{prefix}__{safe_name}_{test_id}_log.html"
             else:
-                log_filename = f"{idx}_{safe_name}_{test_id}_log.html"
+                log_filename = f"{idx}__{safe_name}_{test_id}_log.html"
             log_filepath = output_path / log_filename
 
             try:
