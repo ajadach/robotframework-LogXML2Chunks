@@ -278,7 +278,7 @@ class LogXML2Chunks:
             checksum_data = f"{test_name}{test_doc}".encode('utf-8')
             checksum = hashlib.md5(checksum_data).hexdigest()
 
-            elements_path = xml_filepath.split('__')
+            elements_path = filename.split('__')
             full_prefix = '_'.join(elements_path[0].split('_')[1:]) if len(elements_path) > 1 else None
 
             # Build result dictionary
